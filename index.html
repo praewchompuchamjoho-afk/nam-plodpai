@@ -767,25 +767,31 @@ var d0=new Date(2025,2,24),dd=document.getElementById("days");dd.textContent=Mat
 function ago(t){var m=Math.round((Date.now()-new Date(t))/6e4);return m<60?m+" นาทีก่อน":m<1440?Math.round(m/60)+" ชม.ก่อน":Math.round(m/1440)+" วันก่อน"}
 function hi(t){return t.replace(/(สารหนู|เกินมาตรฐาน|เกินเกณฑ์)/g,'<span class="hl">$1</span>')}
 function esc(x){var e=document.createElement("div");e.textContent=x;return e.innerHTML}
-var RSS="https://news.google.com/rss/search?q="+encodeURIComponent("สารหนู when:7d")+"&hl=th&gl=TH&ceid=TH:th";
-function g(u){var c=new AbortController();setTimeout(function(){c.abort()},12000);return fetch(u,{signal:c.signal}).then(function(r){if(!r.ok)throw 0;return r})}
+var Q=["สารหนู when:1d","สารหนู น้ำ แม่น้ำ when:3d","สารหนู when:7d"];
+function rssUrl(q){return"https://news.google.com/rss/search?q="+encodeURIComponent(q)+"&hl=th&gl=TH&ceid=TH:th&_="+Math.floor(Date.now()/12e4)}
+function g(u,ms){var c=new AbortController();setTimeout(function(){c.abort()},ms||10000);return fetch(u,{signal:c.signal,cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r})}
+var PX=[function(u){return"https://api.allorigins.win/raw?url="+encodeURIComponent(u)},function(u){return"https://corsproxy.io/?"+encodeURIComponent(u)},function(u){return"https://api.codetabs.com/v1/proxy?quest="+encodeURIComponent(u)}];
+function first(ps){return new Promise(function(ok,no){var n=ps.length,d=0;ps.forEach(function(p){p.then(ok,function(){if(++d===n)no()})})})}
+function parse(x){var a=[].slice.call(new DOMParser().parseFromString(x,"text/xml").querySelectorAll("item"));if(!a.length)throw 0;return a.map(function(i){return{title:i.querySelector("title").textContent,link:i.querySelector("link").textContent,t:new Date(i.querySelector("pubDate").textContent)}})}
+function feed(q){var u=rssUrl(q);return first(PX.map(function(p){return g(p(u)).then(function(r){return r.text()}).then(parse)}))}
+function r2j(){return g("https://api.rss2json.com/v1/api.json?rss_url="+encodeURIComponent(rssUrl(Q[0]))).then(function(r){return r.json()}).then(function(j){if(!j.items||!j.items.length)throw 0;return j.items.map(function(n){return{title:n.title,link:n.link,t:new Date(n.pubDate.replace(" ","T")+"Z"),img:n.thumbnail}})})}
 var fm=document.getElementById("fm");fm.onclick=function(){var o=document.getElementById("feed").classList.toggle("open");fm.textContent=o?"แสดงน้อยลง ˄":"ดูข่าวเพิ่มเติม ("+fm.dataset.n+") ˅"};
 function nm(n){var k=n.title.lastIndexOf(" - ");return{t:k>0?n.title.slice(0,k):n.title,s:k>0?n.title.slice(k+3):""}}
-function render(it){it.sort(function(a,b){return b.t-a.t});
+function render(it){it=it.filter(function(n){return!isNaN(n.t)&&n.t<=Date.now()+36e5});it.sort(function(a,b){return b.t-a.t});
 var seen={};it=it.filter(function(n){var k=nm(n).t.replace(/\s+/g,"").slice(0,28);if(seen[k])return false;seen[k]=1;return true});
-document.getElementById("feed").innerHTML=it.slice(0,8).map(function(n,i){var p=nm(n);
+document.getElementById("feed").innerHTML=it.slice(0,10).map(function(n,i){var p=nm(n);
 var im=n.img?'<img class="th" src="'+esc(n.img)+'" alt="" width="42" height="42" loading="lazy">':'<span class="ic" aria-hidden="true">'+esc((p.s||"ข").charAt(0))+'</span>';
 return '<a class="nw'+(i>2?' x':'')+'" target="_blank" rel="noopener" href="'+esc(n.link)+'">'+im+'<span class="tx"><b>'+hi(esc(p.t))+'</b><small>'+(p.s?'<span class="tag t-media">'+esc(p.s)+'</span>':'')+'<span>'+ago(n.t)+'</span>'+(Date.now()-n.t<108e5?'<span class="tag t-new">ใหม่</span>':'')+'</small></span></a>'}).join("");
 document.getElementById("ltl").innerHTML=it.slice(0,3).map(function(n){return '<li class="now"><b>'+n.t.toLocaleString("th-TH",{dateStyle:"medium",timeStyle:"short"})+'</b> '+hi(esc(nm(n).t))+'</li>'}).join("");
-var cn=Math.min(it.length,8)-3;fm.dataset.n=cn;fm.hidden=cn<=0;fm.textContent=document.getElementById("feed").classList.contains("open")?"แสดงน้อยลง ˄":"ดูข่าวเพิ่มเติม ("+cn+") ˅";
-document.getElementById("upd").textContent="· อัปเดต "+new Date().toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"})}
-function fail(){fm.hidden=true;var m='โหลดข่าวสดไม่ได้ในตอนนี้ (เน็ตหรือบริการดึงข่าวไม่ตอบ) จะลองใหม่อัตโนมัติทุก 5 นาที หรือกดปุ่ม Google News ด้านล่าง';
+var cn=Math.min(it.length,10)-3;fm.dataset.n=cn;fm.hidden=cn<=0;fm.textContent=document.getElementById("feed").classList.contains("open")?"แสดงน้อยลง ˄":"ดูข่าวเพิ่มเติม ("+cn+") ˅";
+document.getElementById("upd").textContent="· เช็กเมื่อ "+new Date().toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"})+(it.length?" · ข่าวล่าสุด "+ago(it[0].t):"")}
+function fail(){fm.hidden=true;var m='โหลดข่าวสดไม่ได้ในตอนนี้ (เน็ตหรือบริการดึงข่าวไม่ตอบ) จะลองใหม่อัตโนมัติทุก 2 นาที หรือกดปุ่ม Google News ด้านล่าง';
 document.getElementById("feed").innerHTML='<p class="sm">'+m+'</p>';document.getElementById("ltl").innerHTML='<li class="sm">'+m+'</li>'}
-function load(){
-g("https://api.rss2json.com/v1/api.json?rss_url="+encodeURIComponent(RSS)).then(function(r){return r.json()}).then(function(j){if(!j.items||!j.items.length)throw 0;return j.items.map(function(n){return{title:n.title,link:n.link,t:new Date(n.pubDate.replace(" ","T")+"Z"),img:n.thumbnail}})})
-.catch(function(){return g("https://api.allorigins.win/raw?url="+encodeURIComponent(RSS)).then(function(r){return r.text()}).then(function(x){var a=[].slice.call(new DOMParser().parseFromString(x,"text/xml").querySelectorAll("item"));if(!a.length)throw 0;return a.map(function(i){return{title:i.querySelector("title").textContent,link:i.querySelector("link").textContent,t:new Date(i.querySelector("pubDate").textContent)}})})})
-.then(render).catch(fail)}
-load();setInterval(load,3e5);
+var lt=0;
+function load(){lt=Date.now();Promise.all(Q.map(function(q){return feed(q).catch(function(){return[]})})).then(function(a){var it=[].concat.apply([],a);return it.length?it:r2j()}).then(function(it){if(!it||!it.length)throw 0;render(it)}).catch(fail)}
+load();setInterval(load,12e4);
+document.addEventListener("visibilitychange",function(){if(!document.hidden&&Date.now()-lt>6e4)load()});
+window.addEventListener("online",load);
 function clk(){document.getElementById("d2").textContent=Math.floor((Date.now()-d0)/864e5).toLocaleString("th-TH");document.getElementById("clk").textContent=new Date().toLocaleString("th-TH",{dateStyle:"long",timeStyle:"short"});dd.textContent=Math.floor((Date.now()-d0)/864e5).toLocaleString("th-TH")}
 clk();setInterval(clk,3e4);
 var nv=document.querySelector(".nav"),nl=document.querySelector(".nb.l"),nr=document.querySelector(".nb.r");
